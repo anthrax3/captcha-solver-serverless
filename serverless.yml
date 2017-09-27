@@ -1,0 +1,28 @@
+service: captchasolver-serverless
+
+provider:
+  name: aws
+  runtime: nodejs6.10
+  stage: dev
+  versionFunctions: false
+package:
+  exclude:
+    - binary/preprocess/identify
+functions:
+  solver:
+    memorySize: 384
+    handler: handler.solver
+    events:
+      - http:
+          path: solver
+          method: post
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+              - X-Amz-User-Agent
+            allowCredentials: false
