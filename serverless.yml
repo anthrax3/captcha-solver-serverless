@@ -1,4 +1,4 @@
-service: captchasolver-serverless
+service: captcha-solver-serverless
 
 provider:
   name: aws
