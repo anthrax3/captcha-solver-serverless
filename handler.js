@@ -10,14 +10,19 @@ const mime = require('mime-types');
 const fs = require('fs');
 const tough = require('tough-cookie');
 const url = require('url');
+const imageDataURI = require('image-data-uri');
 
-/**
- * Download captcha image from specified URL
- * @param url
- * @param cookies
- * @param agent
- * @returns {Promise.<TResult>} temporary image file
- */
+const decodeDataUri = function(base64Data)
+{
+    let image = imageDataURI.decode(base64Data);
+
+    let output = tempfile('.'+image.imageType.toLowerCase());
+    console.log(`Temp file ${output}`);
+
+    fs.writeFileSync(output, image.dataBuffer, "binary");
+
+    return output;
+};
 
 const downloadImage = function(url, cookies, agent)
 {
@@ -56,7 +61,7 @@ const downloadImage = function(url, cookies, agent)
         .then(function (res) {
             let output = tempfile('.'+mime.extension(res.headers["content-type"]));
 
-            console.log("Temp file", output);
+            console.log(`Temp file ${output}`);
 
             const buffer = Buffer.from(res.body);
             fs.writeFileSync(output, buffer);
@@ -94,31 +99,34 @@ module.exports.solver = (event, context, callback) => {
             {
                 return downloadImage(body.url, body.cookies, body.agent)
             } else
-                return Promise.reject("No url");
+            if (body.base64)
+            {
+                return decodeDataUri(body.base64);
+            } else
+                return Promise.reject("No url or content");
         })
         .then(function (filename) {
             process.env['LD_LIBRARY_PATH'] = "/tmp/binary/lib";
             process.env['MAGICK_CONFIGURE_PATH'] = "/tmp/binary";
 
             return new Promise(function (resolve, reject) {
-               // let filename = '/var/task/bri1.png';
                 let output = tempfile('.tiff');
                 im.convert.path = "/tmp/binary/preprocess/convert";
                 // im.identify.path = "/tmp/binary/preprocess/identify";
 
-                let preprocess = [filename, output];
+                let preProcess = [filename, output];
 
                 if (body.preprocess)
                 {
-                    preprocess = body.preprocess.split(" ");
-                    preprocess.splice(0, 0, filename);
-                    preprocess.push(output);
+                    preProcess = body.preprocess.split(" ");
+                    preProcess.splice(0, 0, filename);
+                    preProcess.push(output);
                 }
 
-                console.log("Preprocess params", preprocess);
+                console.log("Preprocess params", preProcess);
 
                 im.convert(
-                    preprocess,
+                    preProcess,
                     function (err, stdout) {
                         console.log("Preprocess output", stdout, filename, output);
 
@@ -147,8 +155,8 @@ module.exports.solver = (event, context, callback) => {
                         console.error("Error", err);
                         reject(err);
                     } else {
-                        console.log("OCR", text);
-                        resolve(text);
+                        console.log("OCR", text.trim());
+                        resolve(text.trim());
                     }
                 });
 
